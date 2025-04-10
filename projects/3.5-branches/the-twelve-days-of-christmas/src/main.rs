@@ -42,7 +42,7 @@ fn print_lyrics(i: usize, numbers: & [&str; SSIZE], lyrics: & [&str; SSIZE]) {
     println!("My true love sent to me");
 
     if i == 0 {
-        println!("A {}", &lyrics[SSIZE - 1][6..]);
+        println!("A {}", &lyrics[SSIZE - 1]["And a ".len()..]);
     } else {
 
         for j in (0..i+1).rev() {
