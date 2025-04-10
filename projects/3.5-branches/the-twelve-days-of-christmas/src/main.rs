@@ -28,7 +28,7 @@ fn main() {
         "Four calling birds",
         "Three French hens",
         "Two turtle-doves",
-        "partridge in a pear tree",
+        "And a partridge in a pear tree",
     ];
 
     print_lyrics(0, &numbers, &lyrics);
@@ -38,14 +38,16 @@ fn main() {
 }
 
 fn print_lyrics(i: usize, numbers: & [&str; SSIZE], lyrics: & [&str; SSIZE]) {
-    println!("On the {} day of Chrstmas", numbers[i]);
+    println!("On the {} day of Christmas", numbers[i]);
     println!("My true love sent to me");
 
-    for j in (0..i+1).rev() {
-        if j == 0 {
-            print!("{}", if i == 0 { "A " } else { "And a " });
+    if i == 0 {
+        println!("A {}", &lyrics[SSIZE - 1][6..]);
+    } else {
+
+        for j in (0..i+1).rev() {
+            println!("{}", lyrics[SSIZE - j - 1]);
         }
-        println!("{}", lyrics[SSIZE - j - 1]);
     }
 
     if i < SSIZE - 1 {
