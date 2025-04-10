@@ -1,4 +1,4 @@
-name: Rust
+name: Rust Targeted Cargo Check
 
 on:
   push:
@@ -11,25 +11,40 @@ env:
 
 jobs:
   cargo-check:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Find changed Cargo.toml files
-      id: find_changed
+    - name: Find changed .rs files in src/
+      id: find_rs_files
       run: |
-        changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'Cargo.toml' || true)
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          base_sha="${{ github.event.pull_request.base.sha }}"
+        else
+          base_sha="${{ github.event.before }}"
+        fi
+
+        echo "🔍 Checking for modified .rs files under src/..."
+
+        changed_files=$(git diff --name-only "$base_sha" ${{ github.sha }} | grep '^.*src/.*\.rs$' || true)
+
         echo "changed_files<<EOF" >> $GITHUB_OUTPUT
         echo "$changed_files" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Run cargo check for each changed Cargo.toml
-      if: steps.find_changed.outputs.changed_files != ''
+    - name: Run cargo check for each affected crate
+      if: steps.find_rs_files.outputs.changed_files != ''
       run: |
-        echo "${{ steps.find_changed.outputs.changed_files }}" | while read cargo_toml; do
-          dir=$(dirname "$cargo_toml")
-          echo "Running cargo check in $dir"
-          (cd "$dir" && cargo check --verbose)
+        echo "${{ steps.find_rs_files.outputs.changed_files }}" | while read filepath; do
+          crate_dir=$(echo "$filepath" | grep -oE '^.*/src' | sed 's:/src$::')
+          if [ -d "$crate_dir" ]; then
+            echo "🧪 Running cargo check in $crate_dir (due to change in $filepath)"
+            (cd "$crate_dir" && cargo check --verbose)
+          else
+            echo "⚠️ Could not resolve crate directory for: $filepath"
+          fi
         done
