@@ -1,24 +1,31 @@
 use std::io;
 
 fn main() {
-    let mut number = String::new();
-    io::stdin()
-        .read_line(&mut number)
-        .expect("Failed to read line");
-    let number: u8 = match number.trim().parse() {
-        Ok(num) => num,
-        Err(e) => {
-            println!("{e}");
-            return;
-        },
+    println!("Enter a number in a range of [0, 93]");
+
+    let number: u8 = loop {
+        let mut number = String::new();
+        io::stdin()
+            .read_line(&mut number)
+            .expect("Failed to read line");
+
+        let number: u8 = match number.trim().parse() {
+            Ok(num) => num,
+            Err(e) => {
+                println!("{e}");
+                continue;
+            },
+        };
+
+        if number > 93 {
+            println!("Too big. Please enter a number in a range of [0, 93]");
+        } else {
+            break number;
+        }
     };
 
-    if number > 93 {
-        println!("Too big. Please enter between 0 and 93");
-    } else {
-        let fib = fibonacci(number);
-        println!("F({number}) = {fib}");
-    }
+    let fib = fibonacci(number);
+    println!("F({number}) = {fib}");
 }
 
 fn fibonacci(n: u8) -> u64 {
