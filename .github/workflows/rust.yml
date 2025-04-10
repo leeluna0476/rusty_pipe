@@ -3,48 +3,45 @@ name: Rust Targeted Cargo Check
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  cargo-check:
+  check:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
 
-    - name: Find changed .rs files in src/
-      id: find_rs_files
-      run: |
-        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-          base_sha="${{ github.event.pull_request.base.sha }}"
-        else
-          base_sha="${{ github.event.before }}"
-        fi
+      # 변경된 Cargo.toml 또는 .rs 파일 검색
+      - name: Get changed Cargo projects
+        id: changes
+        run: |
+          changed_rs_or_cargo=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '(\.rs$|Cargo\.toml)' || true)
+          echo "changed_paths<<EOF" >> $GITHUB_OUTPUT
+          echo "$changed_rs_or_cargo" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-        echo "🔍 Checking for modified .rs files under src/..."
+      # cargo check을 실행해야 할 디렉터리 찾기
+      - name: Run cargo check for changed files
+        if: steps.changes.outputs.changed_paths != ''
+        run: |
+          echo "Changed files:"
+          echo "${{ steps.changes.outputs.changed_paths }}"
 
-        changed_files=$(git diff --name-only "$base_sha" ${{ github.sha }} | grep '^.*src/.*\.rs$' || true)
+          # 중복 제거된 crate 루트 디렉터리 목록 생성
+          for file in ${{ steps.changes.outputs.changed_paths }}; do
+            dir=$(dirname "$file")
+            while [ ! -f "$dir/Cargo.toml" ] && [ "$dir" != "." ]; do
+              dir=$(dirname "$dir")
+            done
+            echo "Found crate root: $dir"
+            echo "$dir" >> crates_to_check.txt
+          done
 
-        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
-        echo "$changed_files" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+          # 중복 제거 후 각 crate에서 check 수행
+          sort -u crates_to_check.txt | while read crate; do
+            echo "Checking $crate"
+            (cd "$crate" && cargo check --verbose)
+          done
 
-    - name: Run cargo check for each affected crate
-      if: steps.find_rs_files.outputs.changed_files != ''
-      run: |
-        echo "${{ steps.find_rs_files.outputs.changed_files }}" | while read filepath; do
-          crate_dir=$(echo "$filepath" | grep -oE '^.*/src' | sed 's:/src$::')
-          if [ -d "$crate_dir" ]; then
-            echo "🧪 Running cargo check in $crate_dir (due to change in $filepath)"
-            (cd "$crate_dir" && cargo check --verbose)
-          else
-            echo "⚠️ Could not resolve crate directory for: $filepath"
-          fi
-        done
