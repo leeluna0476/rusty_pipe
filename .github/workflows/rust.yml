@@ -1,0 +1,35 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo-check:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Find changed Cargo.toml files
+      id: find_changed
+      run: |
+        changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'Cargo.toml' || true)
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$changed_files" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Run cargo check for each changed Cargo.toml
+      if: steps.find_changed.outputs.changed_files != ''
+      run: |
+        echo "${{ steps.find_changed.outputs.changed_files }}" | while read cargo_toml; do
+          dir=$(dirname "$cargo_toml")
+          echo "Running cargo check in $dir"
+          (cd "$dir" && cargo check --verbose)
+        done
